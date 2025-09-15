@@ -32,16 +32,29 @@ export GO111MODULE=on
 
 # Get the proper version of tflint first and install it into the same path
 # as the other go tools.
+TFLINT_VERSION=${TFLINT_VERSION:-"v0.53.0"}
 if [ -x "$(command -v wget)" ]; then
   if [ ! -x "$(command -v tflint)" ]; then
+    echo "Installing tflint ${TFLINT_VERSION}..."
     if [[ $(uname -s) == "Darwin" ]]; then
-      wget -q https://github.com/wata727/tflint/releases/download/v0.15.4/tflint_darwin_amd64.zip -O /tmp/tflint.zip
+      if [[ $(uname -m) == "arm64" ]]; then
+        wget -q "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_darwin_arm64.zip" -O /tmp/tflint.zip
+      else
+        wget -q "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_darwin_amd64.zip" -O /tmp/tflint.zip
+      fi
     else
-      wget -q https://github.com/wata727/tflint/releases/download/v0.15.4/tflint_linux_amd64.zip -O /tmp/tflint.zip
+      if [[ $(uname -m) == "aarch64" ]]; then
+        wget -q "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_arm64.zip" -O /tmp/tflint.zip
+      else
+        wget -q "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip" -O /tmp/tflint.zip
+      fi
     fi
-    (cd /tmp && unzip tflint.zip)
+    (cd /tmp && unzip -q tflint.zip)
     chmod +x /tmp/tflint
     mv /tmp/tflint "$GOBIN"
+    echo "tflint ${TFLINT_VERSION} installed successfully."
+  else
+    echo "tflint already installed: $(tflint --version)"
   fi
 else
   echo "Cannot find wget, which is required for installing tools."
