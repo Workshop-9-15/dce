@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -545,67 +546,98 @@ func (db *DB) TransitionAccountStatus(accountID string, prevStatus AccountStatus
 // UpdateAccountPrincipalPolicyHash updates hash representing the
 // current version of the Principal IAM Policy applied to the account
 func (db *DB) UpdateAccountPrincipalPolicyHash(accountID string, prevHash string, nextHash string) (*Account, error) {
+	const maxRetries = 3
+	const baseDelayMs = 100
 
-	var conditionExpression expression.ConditionBuilder
-	if prevHash != "" {
-		log.Printf("Using Condition where PrincipalPolicyHash equals '%s'", prevHash)
-		conditionExpression = expression.Name("PrincipalPolicyHash").Equal(expression.Value(prevHash))
-	} else {
-		log.Printf("Using Condition where PrincipalPolicyHash does not exists")
-		conditionExpression = expression.AttributeNotExists(expression.Name("PrincipalPolicyHash"))
-	}
-	updateExpression, _ := expression.NewBuilder().WithCondition(
-		conditionExpression,
-	).WithUpdate(
-		expression.Set(
-			expression.Name("PrincipalPolicyHash"),
-			expression.Value(nextHash),
-		).Set(
-			expression.Name("LastModifiedOn"),
-			expression.Value(time.Now().Unix()),
-		),
-	).Build()
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			delayMs := baseDelayMs * (1 << uint(attempt-1))
+			jitter := time.Duration(rand.Intn(delayMs/2)) * time.Millisecond
+			delay := time.Duration(delayMs)*time.Millisecond + jitter
+			log.Printf("Retrying UpdateAccountPrincipalPolicyHash for account %s (attempt %d/%d) after %v", 
+				accountID, attempt+1, maxRetries, delay)
+			time.Sleep(delay)
+		}
 
-	result, err := db.Client.UpdateItem(
-		&dynamodb.UpdateItemInput{
-			// Query in Lease Table
-			TableName: aws.String(db.AccountTableName),
-			// Find Account for the requested accountId
-			Key: map[string]*dynamodb.AttributeValue{
-				"Id": {
-					S: aws.String(accountID),
+		currentAccount, err := db.GetAccount(accountID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current account state: %w", err)
+		}
+
+		// Update prevHash to current state if this is a retry
+		if attempt > 0 {
+			prevHash = currentAccount.PrincipalPolicyHash
+		}
+
+		var conditionExpression expression.ConditionBuilder
+		if prevHash != "" {
+			log.Printf("Using Condition where PrincipalPolicyHash equals '%s'", prevHash)
+			conditionExpression = expression.Name("PrincipalPolicyHash").Equal(expression.Value(prevHash))
+		} else {
+			log.Printf("Using Condition where PrincipalPolicyHash does not exists")
+			conditionExpression = expression.AttributeNotExists(expression.Name("PrincipalPolicyHash"))
+		}
+		updateExpression, _ := expression.NewBuilder().WithCondition(
+			conditionExpression,
+		).WithUpdate(
+			expression.Set(
+				expression.Name("PrincipalPolicyHash"),
+				expression.Value(nextHash),
+			).Set(
+				expression.Name("LastModifiedOn"),
+				expression.Value(time.Now().Unix()),
+			),
+		).Build()
+
+		result, err := db.Client.UpdateItem(
+			&dynamodb.UpdateItemInput{
+				// Query in Account Table
+				TableName: aws.String(db.AccountTableName),
+				// Find Account for the requested accountId
+				Key: map[string]*dynamodb.AttributeValue{
+					"Id": {
+						S: aws.String(accountID),
+					},
 				},
+				ExpressionAttributeNames:  updateExpression.Names(),
+				ExpressionAttributeValues: updateExpression.Values(),
+				// Set PrincipalPolicyHash=nextHash
+				UpdateExpression: updateExpression.Update(),
+				// Only update records where the previousHash matches
+				ConditionExpression: updateExpression.Condition(),
+				// Return the updated record
+				ReturnValues: aws.String("ALL_NEW"),
 			},
-			ExpressionAttributeNames:  updateExpression.Names(),
-			ExpressionAttributeValues: updateExpression.Values(),
-			// Set PrincipalPolicyHash=nextHash
-			UpdateExpression: updateExpression.Update(),
-			// Only update records where the previousHash matches
-			ConditionExpression: updateExpression.Condition(),
-			// Return the updated record
-			ReturnValues: aws.String("ALL_NEW"),
-		},
-	)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == "ConditionalCheckFailedException" {
-				return nil, &StatusTransitionError{
-					fmt.Sprintf(
-						"unable to update Principal Policy hash from \"%v\" to \"%v\" "+
-							"for account %v: no account exists with PrincipalPolicyHash=\"%v\"",
-						prevHash,
-						nextHash,
-						accountID,
-						prevHash,
-					),
+		)
+		if err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				if aerr.Code() == "ConditionalCheckFailedException" {
+					if attempt == maxRetries-1 {
+						return nil, &StatusTransitionError{
+							fmt.Sprintf(
+								"unable to update Principal Policy hash from \"%v\" to \"%v\" "+
+									"for account %v after %d attempts: no account exists with PrincipalPolicyHash=\"%v\"",
+								prevHash,
+								nextHash,
+								accountID,
+								maxRetries,
+								prevHash,
+							),
+						}
+					}
+					log.Printf("ConditionalCheckFailedException on attempt %d/%d for account %s, will retry", 
+						attempt+1, maxRetries, accountID)
+					continue
 				}
+				return nil, err
 			}
 			return nil, err
 		}
-		return nil, err
+
+		return unmarshalAccount(result.Attributes)
 	}
 
-	return unmarshalAccount(result.Attributes)
+	return nil, fmt.Errorf("unexpected error: exhausted all retry attempts")
 }
 
 // GetLeasesInput contains the filtering criteria for the GetLeases scan.
