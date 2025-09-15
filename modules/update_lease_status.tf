@@ -16,6 +16,7 @@ module "fan_out_update_lease_status_lambda" {
     ACCOUNT_DB                        = aws_dynamodb_table.accounts.id
     LEASE_DB                          = aws_dynamodb_table.leases.id
     UPDATE_LEASE_STATUS_FUNCTION_NAME = module.update_lease_status_lambda.name
+    LEASE_PAGE_SIZE                   = var.lease_page_size
   }
 }
 

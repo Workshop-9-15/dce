@@ -269,20 +269,21 @@ func (a *Service) Create(data *Lease, principalSpentAmount float64) (*Lease, err
 
 // ListPages runs a function on each page in a list
 func (a *Service) ListPages(query *Lease, fn func(*Leases) bool) error {
-
 	for {
 		records, err := a.dataSvc.List(query)
 		if err != nil {
 			return err
 		}
+
 		if !fn(records) {
 			break
 		}
-		if query.PrincipalID == nil {
-			break
+
+		// Check if there are more pages by looking at NextAccountID/NextPrincipalID
+		if query.NextAccountID == nil && query.NextPrincipalID == nil {
+			break // No more pages
 		}
 	}
-
 	return nil
 }
 
