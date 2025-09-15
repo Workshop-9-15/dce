@@ -158,3 +158,18 @@ output "role_admin_policy" {
 output "codebuild_reset_name" {
   value = aws_codebuild_project.reset_build.id
 }
+
+output "scp_policy_id" {
+  description = "ID of the DCE Service Control Policy"
+  value       = var.enable_scp ? aws_organizations_policy.dce_security_scp[0].id : null
+}
+
+output "scp_policy_arn" {
+  description = "ARN of the DCE Service Control Policy"
+  value       = var.enable_scp ? aws_organizations_policy.dce_security_scp[0].arn : null
+}
+
+output "scp_enabled" {
+  description = "Whether Service Control Policy is enabled"
+  value       = var.enable_scp
+}
