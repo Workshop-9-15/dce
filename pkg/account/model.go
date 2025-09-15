@@ -59,6 +59,7 @@ func (a *Account) Validate() error {
 		validation.Field(&a.CreatedOn, validateInt64...),
 		validation.Field(&a.PrincipalRoleArn, validatePrincipalRoleArn...),
 		validation.Field(&a.PrincipalPolicyHash, validatePrincipalPolicyHash...),
+		validation.Field(&a.Metadata, validateMetadata...),
 	)
 	if err != nil {
 		return errors.NewValidation("account", err)
