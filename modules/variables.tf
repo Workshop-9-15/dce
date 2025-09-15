@@ -165,6 +165,12 @@ variable "update_lease_status_enabled" {
   default     = true
 }
 
+variable "lease_page_size" {
+  description = "Page size for lease pagination in fan_out_update_lease_status Lambda"
+  type        = number
+  default     = 100
+}
+
 variable "namespace_prefix" {
   type    = string
   default = "dce"

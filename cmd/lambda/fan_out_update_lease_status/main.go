@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"os"
+	"strconv"
 
 	"github.com/Optum/dce/pkg/config"
 	"github.com/Optum/dce/pkg/errors"
@@ -24,6 +26,20 @@ var (
 	// Settings - the configuration settings for the controller
 	settings *configuration
 )
+
+func getEnvInt(key string, defaultValue int) int {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return defaultValue
+	}
+
+	return value
+}
 
 func init() {
 	cfgBldr := &config.ConfigurationBuilder{}
@@ -52,9 +68,11 @@ func init() {
 }
 
 func handler(cloudWatchEvent events.CloudWatchEvent) error {
+	pageSize := int64(getEnvInt("LEASE_PAGE_SIZE", 100)) // Default to 100, respecting 1MB limit
 
 	query := &lease.Lease{
 		Status: lease.StatusActive.StatusPtr(),
+		Limit:  &pageSize, // Set explicit limit
 	}
 
 	var lambdaSvc lambdaiface.LambdaAPI
