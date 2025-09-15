@@ -73,9 +73,77 @@
       "Sid": "DenySpecificKMSActions",
       "Effect": "Deny",
       "Action": [
-        "kms:PutKeyPolicy"
+        "kms:PutKeyPolicy",
+        "kms:CreateKey",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "DenyDangerousIAMActions",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:CreateUser",
+        "iam:DeleteUser",
+        "iam:CreateGroup",
+        "iam:DeleteGroup",
+        "iam:AttachUserPolicy",
+        "iam:DetachUserPolicy",
+        "iam:AttachGroupPolicy",
+        "iam:DetachGroupPolicy",
+        "iam:PutUserPolicy",
+        "iam:PutGroupPolicy",
+        "iam:DeleteUserPolicy",
+        "iam:DeleteGroupPolicy",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyOrganizationsAccess",
+      "Effect": "Deny",
+      "Action": [
+        "organizations:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyBillingAccess",
+      "Effect": "Deny",
+      "Action": [
+        "aws-portal:ModifyBilling",
+        "aws-portal:ModifyAccount",
+        "aws-portal:ModifyPaymentMethods",
+        "budgets:ModifyBudget",
+        "budgets:CreateBudget",
+        "budgets:DeleteBudget"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyRootAccess",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateAccessKey",
+        "iam:DeleteAccessKey",
+        "iam:UpdateAccessKey"
+      ],
+      "Resource": "arn:aws:iam::*:root"
     },
     {
       "Sid": "ViewBillingBudgetsQuotas",
@@ -89,10 +157,163 @@
       "Resource": "*"
     },
     {
-      "Sid": "AllowedServices",
+      "Sid": "AllowedComputeServices",
       "Effect": "Allow",
       "Action": [
-        "*"
+        "ec2:*",
+        "ecs:*",
+        "eks:*",
+        "lambda:*",
+        "batch:*",
+        "autoscaling:*",
+        "application-autoscaling:*",
+        "elasticloadbalancing:*",
+        "elasticbeanstalk:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": [
+            {{$first := true}}{{range .Regions}}{{if $first}}{{$first = false}}{{else}},{{end}}"{{.}}"{{end}}
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowedStorageServices",
+      "Effect": "Allow",
+      "Action": [
+        "s3:*",
+        "dynamodb:*",
+        "rds:*",
+        "elasticache:*",
+        "elasticfilesystem:*",
+        "fsx:*",
+        "backup:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": [
+            {{$first := true}}{{range .Regions}}{{if $first}}{{$first = false}}{{else}},{{end}}"{{.}}"{{end}}
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowedNetworkingServices",
+      "Effect": "Allow",
+      "Action": [
+        "vpc:*",
+        "route53:*",
+        "cloudfront:*",
+        "apigateway:*",
+        "directconnect:*",
+        "globalaccelerator:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": [
+            {{$first := true}}{{range .Regions}}{{if $first}}{{$first = false}}{{else}},{{end}}"{{.}}"{{end}}
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowedSecurityServices",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:GenerateDataKey*",
+        "kms:ReEncrypt*",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret",
+        "acm:*",
+        "waf:*",
+        "wafv2:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": [
+            {{$first := true}}{{range .Regions}}{{if $first}}{{$first = false}}{{else}},{{end}}"{{.}}"{{end}}
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowedMonitoringServices",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:*",
+        "logs:*",
+        "cloudtrail:LookupEvents",
+        "cloudtrail:GetTrailStatus",
+        "xray:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": [
+            {{$first := true}}{{range .Regions}}{{if $first}}{{$first = false}}{{else}},{{end}}"{{.}}"{{end}}
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowedDeveloperServices",
+      "Effect": "Allow",
+      "Action": [
+        "codecommit:*",
+        "codebuild:*",
+        "codedeploy:*",
+        "codepipeline:*",
+        "codestar:*",
+        "cloud9:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": [
+            {{$first := true}}{{range .Regions}}{{if $first}}{{$first = false}}{{else}},{{end}}"{{.}}"{{end}}
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowedDataServices",
+      "Effect": "Allow",
+      "Action": [
+        "athena:*",
+        "glue:*",
+        "kinesis:*",
+        "firehose:*",
+        "redshift:*",
+        "emr:*",
+        "sagemaker:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": [
+            {{$first := true}}{{range .Regions}}{{if $first}}{{$first = false}}{{else}},{{end}}"{{.}}"{{end}}
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowedManagementServices",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:*",
+        "config:*",
+        "ssm:*",
+        "tag:*",
+        "resource-groups:*",
+        "servicecatalog:*"
       ],
       "Resource": "*",
       "Condition": {
