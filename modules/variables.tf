@@ -281,3 +281,21 @@ variable "required_bucket_prefix" {
   type        = string
   default     = "" 
 }
+
+variable "enable_scp" {
+  type        = bool
+  description = "Enable Service Control Policy to prevent IAM privilege escalation. Requires AWS Organizations."
+  default     = true
+}
+
+variable "scp_target_ids" {
+  type        = list(string)
+  description = "List of AWS Organizations organizational unit IDs or account IDs to attach the SCP to. If empty, SCP will be created but not attached."
+  default     = []
+}
+
+variable "scp_policy_name" {
+  type        = string
+  description = "Name for the Service Control Policy"
+  default     = "DCE-Security-SCP"
+}

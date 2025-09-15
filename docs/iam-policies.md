@@ -214,3 +214,24 @@ The file specified in `principal_policy` is rendered using [golang templates](ht
 | AdminRoleArn | ARN of the admin access role within the account |
 | PrincipalIAMDenyTags | Populated from the `principal_iam_deny_tags` Terraform variable. By default, these are used to deny access to AWS resources with `AppName=DCE` tags |
 | Regions | AWS Regions, populated from the `allowed_regions` Terraform variable |
+
+## Configuring Service Control Policies
+
+DCE can automatically deploy the recommended Service Control Policy to prevent IAM privilege escalation. This requires AWS Organizations to be set up.
+
+### Terraform Variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `enable_scp` | `true` | Enable Service Control Policy deployment |
+| `scp_target_ids` | `[]` | List of organizational unit IDs or account IDs to attach the SCP to |
+| `scp_policy_name` | `"DCE-Security-SCP"` | Name for the Service Control Policy |
+
+### Example Configuration
+
+```hcl
+enable_scp = true
+scp_target_ids = ["ou-root-example123", "123456789012"]
+```
+
+**Note**: If `scp_target_ids` is empty, the SCP will be created but not attached to any organizational units or accounts. You can attach it manually through the AWS Organizations console.
